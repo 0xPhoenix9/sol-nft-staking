@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-
 pub mod anchor_metaplex;
 pub mod errors;
 pub mod state;
@@ -7,15 +6,14 @@ pub mod state;
 use anchor_metaplex::MetadataAccount;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::{self, Mint, MintTo, SetAuthority, Token, TokenAccount};
-use errors::*;
+use errors::StakingError;
 use spl_token::instruction::AuthorityType;
 use state::*;
 
 const REWARDER_PREFIX: &[u8] = b"rewarder";
 const ACCOUNT_PREFIX: &[u8] = b"stake_account";
 
-// declare_id!("3zPPaZhN3tAkSJhjcEcyT7kAM6b2stQmJf65Fw9sMZa3");
-declare_id!("6Xde61SaqTSVF61efcHMHwTGkq5ydTpKbGeUZnFrRZhy");
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod sol_nft_staking {
@@ -30,7 +28,7 @@ pub mod sol_nft_staking {
         creators: Vec<CreatorStruct>,
         nft_update_authority: Pubkey,
         enforce_metadata: bool,
-    ) -> ProgramResult {
+    ) ->  Result<()>  {
         let rewarder = &mut ctx.accounts.rewarder;
 
         rewarder.authority = ctx.accounts.authority.key();
@@ -46,7 +44,7 @@ pub mod sol_nft_staking {
         Ok(())
     }
 
-    pub fn update_reward_rate(ctx: Context<UpdateRewardRate>, new_rate: u64) -> ProgramResult {
+    pub fn update_reward_rate(ctx: Context<UpdateRewardRate>, new_rate: u64) ->  Result<()>  {
         let rewarder = &mut ctx.accounts.rewarder;
 
         rewarder.reward_rate = new_rate;
@@ -57,7 +55,7 @@ pub mod sol_nft_staking {
     pub fn initialize_stake_account(
         ctx: Context<InitializeStakeAccount>,
         bump: u8,
-    ) -> ProgramResult {
+    ) ->  Result<()>  {
         let stake_account = &mut ctx.accounts.stake_account;
 
         stake_account.owner = ctx.accounts.owner.key();
@@ -69,7 +67,7 @@ pub mod sol_nft_staking {
         Ok(())
     }
 
-    pub fn stake_nft(ctx: Context<StakeNft>) -> ProgramResult {
+    pub fn stake_nft(ctx: Context<StakeNft>) ->  Result<()>  {
         let owner = &ctx.accounts.owner;
         let rewarder = &mut ctx.accounts.rewarder;
         let stake_account = &mut ctx.accounts.stake_account;
@@ -126,7 +124,7 @@ pub mod sol_nft_staking {
         Ok(())
     }
 
-    pub fn unstake_nft(ctx: Context<UnstakeNft>) -> ProgramResult {
+    pub fn unstake_nft(ctx: Context<UnstakeNft>) ->  Result<()>  {
         let owner = &ctx.accounts.owner;
         let rewarder = &mut ctx.accounts.rewarder;
         let stake_account = &mut ctx.accounts.stake_account;
@@ -192,7 +190,7 @@ pub mod sol_nft_staking {
         Ok(())
     }
 
-    pub fn claim(ctx: Context<Claim>) -> ProgramResult {
+    pub fn claim(ctx: Context<Claim>) ->  Result<()>  {
         let rewarder = &ctx.accounts.rewarder;
         let stake_account = &mut ctx.accounts.stake_account;
         let reward_mint = &ctx.accounts.reward_mint;
@@ -249,7 +247,7 @@ pub fn transfer_reward<'info>(
     reward_account: &Account<'info, TokenAccount>,
     mint_authority: &AccountInfo<'info>,
     token_program: &AccountInfo<'info>,
-) -> ProgramResult {
+) ->  Result<()>  {
     let mint_authority_seeds = &[
         rewarder.collection.as_bytes(),
         &id().to_bytes(),
@@ -270,6 +268,7 @@ pub fn transfer_reward<'info>(
     );
     token::mint_to(mint_ctx, earned_reward)
 }
+
 
 #[derive(Accounts)]
 #[instruction(_rewarder_bump: u8, reward_authority_bump: u8, reward_rate: u64, collection: String, creators: Vec<CreatorStruct>)]
@@ -529,7 +528,7 @@ pub fn check_metadata<'a, 'b, 'c, 'info>(
     metadata: &'a Account<'info, MetadataAccount>,
     nft_mint_key: &'b Pubkey,
     rewarder: &'c NftStakeRewarder,
-) -> std::result::Result<(), ProgramError> {
+) -> std::result::Result<(), StakingError> {
     let (expected_address, _) = Pubkey::find_program_address(
         &[
             anchor_metaplex::PDAPrefix.as_bytes(),
@@ -540,20 +539,20 @@ pub fn check_metadata<'a, 'b, 'c, 'info>(
     );
 
     if metadata.key() != expected_address {
-        return Err(StakingError::InvalidMetadataAccountAddress.into());
+        return Err(StakingError::InvalidMetadataAccountAddress);
     }
 
     if metadata.update_authority != rewarder.allowed_update_authority {
-        return Err(StakingError::InvalidMetadataUpdateAuthority.into());
+        return Err(StakingError::InvalidMetadataUpdateAuthority);
     }
 
     if !metadata.data.name.starts_with(&rewarder.collection) {
-        return Err(StakingError::InvalidMetadataCollectionPrefix.into());
+        return Err(StakingError::InvalidMetadataCollectionPrefix);
     }
 
     if let Some(creators) = &metadata.data.creators {
         if creators.len() != rewarder.creators.len() {
-            return Err(StakingError::InvalidMetadataCreators.into());
+            return Err(StakingError::InvalidMetadataCreators);
         }
 
         for creator in creators.iter() {
@@ -562,11 +561,11 @@ pub fn check_metadata<'a, 'b, 'c, 'info>(
                 .iter()
                 .find(|known_creator| known_creator == creator);
             if found_match.is_none() {
-                return Err(StakingError::InvalidMetadataCreators.into());
+                return Err(StakingError::InvalidMetadataCreators);
             }
         }
     } else {
-        return Err(StakingError::InvalidMetadataCreators.into());
+        return Err(StakingError::InvalidMetadataCreators);
     }
 
     Ok(())

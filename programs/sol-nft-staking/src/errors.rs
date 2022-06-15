@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-#[error]
+#[error_code]
 pub enum StakingError {
     #[msg("The provided reward mint doesn't have the correct minting authority")]
     RewarderNotMintAuthority,
