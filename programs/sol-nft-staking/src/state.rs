@@ -32,31 +32,13 @@ pub struct NftStakeRewarder {
     /// flag to verify metadata of NFT against rewarder settings
     /// useful to have set to false during testing
     pub enforce_metadata: bool,
-    /// The total number of NFTs staked with this rewarder.
-    pub total_staked: u32,
     pub bump: u8,
-
+    /// the list of whitelist addresses
+    pub whitelist_addresses: Vec<Pubkey>,
+    /// the total number of whitelist addresses
+    pub total_whitelist_address: u64,
 }
 
-impl NftStakeRewarder {
-    pub fn calculate_len(num_creators: usize, collection: &str) -> usize {
-        let mut size = size_of::<Pubkey>() * 3; //stored pubkeys
-        size += 1; // authority bump
-        size += 8; // reward rate
-        size += 4; //total staked
-        size += 1; //enforced metadata
-        size += 1; //bump
-
-        let creator_size = size_of::<CreatorStruct>() * num_creators;
-        size += creator_size;
-        // let collection_size = size_of::<String>() + collection.len();
-        let collection_size = size_of::<String>() * collection.len();
-        size += collection_size;
-
-
-        size
-    }
-}
 
 #[derive(Debug, AnchorDeserialize, AnchorSerialize, Default, Clone)]
 pub struct CreatorStruct {
@@ -74,11 +56,17 @@ impl PartialEq<Creator> for &CreatorStruct {
 }
 
 #[account]
+pub struct VaultAccount {
+    pub total_staked: u32,
+    pub reward_mint: Pubkey,
+    pub nft_items_staked: Vec<NftItem>,
+}
+
+#[account]
 pub struct NftStakeAccount {
     pub owner: Pubkey,
     pub rewarder: Pubkey,
     pub nfts_staked: Vec<NftStaked>,
-    pub nft_items_staked: Vec<NftItem>,
     pub bump: u8,
     pub last_claimed: i64,
     pub claimed_reward: u64,
@@ -92,7 +80,9 @@ pub struct NftStaked {
 
 #[derive(Debug, AnchorDeserialize, AnchorSerialize, Default, Clone)]
 pub struct NftItem {
+    pub owner: Pubkey,
     pub locking_period: i64,
     pub start_staking: i64,
     pub nft_mint: Pubkey,
+    pub flag: bool,
 }

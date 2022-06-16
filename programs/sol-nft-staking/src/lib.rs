@@ -22,6 +22,15 @@ declare_id!("H5BxWdFfzpou2UcRSsGHMBCroZYs24wWwimPyAX1VqWo");
 pub mod sol_nft_staking {
 
     use super::*;
+
+    pub fn initialize_valut(ctx: Context<InitializeVaultAccount>) -> Result<()> {
+        let vault_account = &mut ctx.accounts.vault_account;
+        let reward_mint = &mut ctx.accounts.reward_mint;
+        vault_account.total_staked = 0;
+        vault_account.reward_mint = reward_mint.to_account_info().key();
+        Ok(())
+    }
+
     pub fn initialize_rewarder(
         ctx: Context<InitializeRewarder>,
         _rewarder_bump: u8,
@@ -41,16 +50,23 @@ pub mod sol_nft_staking {
         rewarder.allowed_update_authority = nft_update_authority;
         rewarder.creators = creators;
         rewarder.collection = collection;
-        rewarder.total_staked = 0;
         rewarder.enforce_metadata = enforce_metadata;
-
-
+        
         Ok(())
     }
 
-    pub fn update_reward_rate(ctx: Context<UpdateRewardRate>, new_rate: u64) -> Result<()> {
+    pub fn update_reward_rate(ctx: Context<UpdateRewardRate>, new_rate: u64, _whitelist_addresses:Vec<Pubkey>) -> Result<()> {
         let rewarder = &mut ctx.accounts.rewarder;
         rewarder.reward_rate = new_rate;
+        for whitelist_address in _whitelist_addresses.iter() {
+            let found_match = rewarder
+                .whitelist_addresses
+                .iter()
+                .find(|known_whitelist_address| known_whitelist_address == &whitelist_address);
+            if found_match.is_none() {
+                rewarder.whitelist_addresses.push(whitelist_address.key());
+            }
+        }
         Ok(())
     }
 
@@ -58,10 +74,11 @@ pub mod sol_nft_staking {
         ctx: Context<InitializeStakeAccount>,
         bump: u8,
     ) -> Result<()> {
+        let owner = &mut ctx.accounts.owner;
         let stake_account = &mut ctx.accounts.stake_account;
 
-        stake_account.owner = ctx.accounts.owner.key();
-        stake_account.rewarder = ctx.accounts.rewarder.key();
+        stake_account.owner = owner.to_account_info().key();
+        stake_account.rewarder = ctx.accounts.rewarder.to_account_info().key();
         stake_account.bump = bump;
         stake_account.last_claimed = 0;
         stake_account.claimed_reward = 0;
@@ -70,14 +87,15 @@ pub mod sol_nft_staking {
     }
 
     pub fn stake_nft(ctx: Context<StakeNft>,locking_period:i64) -> Result<()> {
-        let owner = &ctx.accounts.owner;
+
+        let owner = &mut ctx.accounts.owner;
         let rewarder = &mut ctx.accounts.rewarder;
         let stake_account = &mut ctx.accounts.stake_account;
         let nft_mint = &ctx.accounts.nft_mint;
         let nft_token_account = &ctx.accounts.nft_token_account;
-        // let nft_vault = &ctx.accounts.nft_vault;
 
         let token_program = &ctx.accounts.token_program;
+        let vault_account = &mut ctx.accounts.vault_account;
         let clock = &ctx.accounts.clock;
 
         if rewarder.enforce_metadata {
@@ -102,26 +120,41 @@ pub mod sol_nft_staking {
 
         stake_account.last_claimed = clock.unix_timestamp;
 
-        //add the staked nft 
+        //make a nft item struct staked
         let mut already_staked = false;
         let nft_item = NftItem{
+            owner: *owner.to_account_info().key,
             locking_period: locking_period,
             start_staking: clock.unix_timestamp,
-            nft_mint: nft_mint.key()
+            nft_mint: nft_mint.to_account_info().key(),
+            flag: true,
         };
+
+        // checking if the nft is whitelisted
+        let mut whitelisted = false;
+        for whitelist_address in rewarder.whitelist_addresses.iter() {
+            if whitelist_address == &nft_item.nft_mint {
+                whitelisted = true;
+            }
+        }
+        if !whitelisted == true {
+            return Err(StakingError::NFTWhitelisted.into());
+        }
        
-
-        for nft_item_staked in stake_account.nft_items_staked.iter_mut() {
-
+        // add the nft_info into vault account
+        for nft_item_staked in vault_account.nft_items_staked.iter_mut() {
             if nft_item_staked.nft_mint == nft_mint.key() {
                 nft_item_staked.locking_period = locking_period;
                 nft_item_staked.start_staking = clock.unix_timestamp;
+                nft_item_staked.owner = *owner.to_account_info().key;
                 already_staked = true;
             }
         }
         if already_staked !=true{
-            stake_account.nft_items_staked.push(nft_item);
+            vault_account.nft_items_staked.push(nft_item);
         }
+        vault_account.total_staked += 1;
+
         // add the nft info into the NFTSTAKE
         let mut able_added = false;
         for nft_staked in stake_account.nfts_staked.iter_mut() {
@@ -139,8 +172,6 @@ pub mod sol_nft_staking {
         } 
         
         
-        rewarder.total_staked += 1;
-
         //transfer nft ownership to vault
         let authority_accounts = SetAuthority {
             current_authority: owner.to_account_info(),
@@ -165,15 +196,20 @@ pub mod sol_nft_staking {
         // let nft_vault = &ctx.accounts.nft_vault;
 
         let token_program = &ctx.accounts.token_program;
+        let vault_account = &mut ctx.accounts.vault_account;
         let clock = &ctx.accounts.clock;
         // check the locking period
         let mut checked = false;
-        for nft_item in stake_account.nft_items_staked.iter() {
-            if nft_mint.key() == nft_item.nft_mint {
-                if locking_period == 0 {
-                    checked = true;
-                } else if nft_item.start_staking + nft_item.locking_period <  clock.unix_timestamp {
+        for nft_item in vault_account.nft_items_staked.iter_mut() {
+            if owner.to_account_info().key() == nft_item.owner {
+                if nft_mint.to_account_info().key() == nft_item.nft_mint {
+                    if locking_period == 0 {
                         checked = true;
+                        nft_item.flag = false;
+                    } else if nft_item.start_staking + nft_item.locking_period <  clock.unix_timestamp {
+                        checked = true;
+                        nft_item.flag = false;
+                    }
                 }
             }
         }
@@ -200,7 +236,7 @@ pub mod sol_nft_staking {
         for nft_staked in stake_account.nfts_staked.iter_mut() {
             if nft_staked.locking_period == locking_period {
                 nft_staked.num_staked = nft_staked.num_staked.checked_sub(1).unwrap_or(0);
-                rewarder.total_staked = rewarder.total_staked.checked_sub(1).unwrap_or(0);
+                vault_account.total_staked = vault_account.total_staked.checked_sub(1).unwrap_or(0);
             }
         }
         
@@ -377,7 +413,7 @@ pub struct InitializeRewarder<'info> {
     /// The new rewarder account to create
     #[account(
         init,
-        space = NftStakeRewarder::calculate_len(creators.len(),&collection),
+        space = 10240,
         payer = authority,
         seeds = [collection.as_bytes(), &id().to_bytes(), REWARDER_PREFIX],
         bump
@@ -448,6 +484,17 @@ pub struct InitializeStakeAccount<'info> {
 }
 
 #[derive(Accounts)]
+pub struct InitializeVaultAccount<'info> {
+  #[account(init, payer = user, space = 10240)]
+  pub vault_account: Account<'info, VaultAccount>,
+  #[account(mut)]
+  pub user: Signer<'info>,
+  pub reward_mint: Account<'info, Mint>,
+  pub system_program: Program <'info, System>,
+}
+
+
+#[derive(Accounts)]
 // #[instruction(_vault_bump: u8)]
 pub struct StakeNft<'info> {
     /// The owner of the stake account
@@ -491,6 +538,8 @@ pub struct StakeNft<'info> {
         constraint = reward_token_account.mint == rewarder.reward_mint @ StakingError::InvalidRewardTokenAccount,
     )]
     pub reward_token_account: Account<'info, TokenAccount>,
+
+    pub vault_account: Account<'info, VaultAccount>,
 
     /// The Mint of the NFT
     #[account(
@@ -572,6 +621,9 @@ pub struct UnstakeNft<'info> {
         address = get_associated_token_address(&owner.key(), &nft_mint.key()),
     )]
     pub nft_token_account: Account<'info, TokenAccount>,
+
+    pub vault_account: Account<'info, VaultAccount>,
+
 
     pub token_program: Program<'info, Token>,
     pub clock: Sysvar<'info, Clock>,

@@ -17,6 +17,9 @@ pub enum StakingError {
     #[msg("The provided Mint is not valid for the provided Rewarder")]
     InvalidRewardMint,
 
+    #[msg("NFT is not whitelist")]
+    NFTWhitelisted,
+
     #[msg("The provided reward token account is not owned by the provided owner")]
     InvalidOwnerForRewardToken,
 
