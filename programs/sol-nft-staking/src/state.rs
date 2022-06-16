@@ -14,6 +14,8 @@ where
     const LEN: usize = 8 + size_of::<T>();
 }
 
+
+
 #[account]
 pub struct NftStakeRewarder {
     pub authority: Pubkey,
@@ -32,6 +34,8 @@ pub struct NftStakeRewarder {
     pub enforce_metadata: bool,
     /// The total number of NFTs staked with this rewarder.
     pub total_staked: u32,
+    pub bump: u8,
+
 }
 
 impl NftStakeRewarder {
@@ -41,11 +45,14 @@ impl NftStakeRewarder {
         size += 8; // reward rate
         size += 4; //total staked
         size += 1; //enforced metadata
+        size += 1; //bump
 
         let creator_size = size_of::<CreatorStruct>() * num_creators;
         size += creator_size;
-        let collection_size = size_of::<String>() + collection.len();
+        // let collection_size = size_of::<String>() + collection.len();
+        let collection_size = size_of::<String>() * collection.len();
         size += collection_size;
+
 
         size
     }
@@ -70,7 +77,22 @@ impl PartialEq<Creator> for &CreatorStruct {
 pub struct NftStakeAccount {
     pub owner: Pubkey,
     pub rewarder: Pubkey,
-    pub num_staked: u16,
+    pub nfts_staked: Vec<NftStaked>,
+    pub nft_items_staked: Vec<NftItem>,
     pub bump: u8,
     pub last_claimed: i64,
+    pub claimed_reward: u64,
+}
+
+#[derive(Debug, AnchorDeserialize, AnchorSerialize, Default, Clone)]
+pub struct NftStaked {
+    pub locking_period: i64,
+    pub num_staked: u16,
+}
+
+#[derive(Debug, AnchorDeserialize, AnchorSerialize, Default, Clone)]
+pub struct NftItem {
+    pub locking_period: i64,
+    pub start_staking: i64,
+    pub nft_mint: Pubkey,
 }

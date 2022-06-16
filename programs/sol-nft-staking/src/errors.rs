@@ -35,6 +35,9 @@ pub enum StakingError {
     #[msg("The provided NFT token account does not have the token")]
     NFTAccountEmpty,
 
+    #[msg("This NFT is locked")]
+    NFTAUnlocked,
+
     #[msg("The provided NFT token account is not owned by the provided stake account")]
     InvalidStakedNFTOwner,
 
