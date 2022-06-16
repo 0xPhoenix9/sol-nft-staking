@@ -1,21 +1,24 @@
 use std::ops::{Deref, DerefMut};
 use anchor_lang::prelude::{ProgramError, Pubkey};
-use anchor_lang::solana_program::borsh::try_from_slice_unchecked;
-use metaplex_token_metadata::state::{Key as MetaplexKey, Metadata, MAX_METADATA_LEN};
-use metaplex_token_metadata::utils::try_from_slice_checked;
+use 
+anchor_lang::solana_program::borsh::try_from_slice_unchecked;
+use metaplex_token_metadata::state::{ Metadata, MAX_METADATA_LEN};
+
+// use metaplex_token_metadata::state::{Key as MetaplexKey, Metadata, MAX_METADATA_LEN};
+// use metaplex_token_metadata::utils::try_from_slice_checked;
 
 pub use metaplex_token_metadata::state::PREFIX as PDAPrefix;
 pub use metaplex_token_metadata::ID;
-pub use anchor_lang::prelude::error::Error;
+
 #[derive(Clone)]
 pub struct MetaplexTokenMetadata;
 
 impl anchor_lang::AccountDeserialize for MetaplexTokenMetadata {
-    fn try_deserialize(buf: &mut &[u8]) -> Result<Self, ProgramError> {
+    fn try_deserialize(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         MetaplexTokenMetadata::try_deserialize_unchecked(buf)
     }
 
-    fn try_deserialize_unchecked(_buf: &mut &[u8]) -> Result<Self, ProgramError> {
+    fn try_deserialize_unchecked(_buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(MetaplexTokenMetadata)
     }
 }
@@ -34,11 +37,11 @@ impl MetadataAccount {
 }
 
 impl anchor_lang::AccountDeserialize for MetadataAccount {
-    fn try_deserialize(buf: &mut &[u8]) -> Result<Self, ProgramError> {
-        try_from_slice_checked(buf, MetaplexKey::MetadataV1, MAX_METADATA_LEN).map(MetadataAccount)
-    }
+    // fn try_deserialize(buf: &mut &[u8]) -> anchor_lang::Result<()> {
+    //     try_from_slice_checked(buf, MetaplexKey::MetadataV1, MAX_METADATA_LEN).map(MetadataAccount)
+    // }
 
-    fn try_deserialize_unchecked(buf: &mut &[u8]) -> Result<Self, ProgramError> {
+    fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         let metadata: Metadata = try_from_slice_unchecked(buf)
             .map_err(|err| ProgramError::BorshIoError(err.to_string()))?;
         Ok(MetadataAccount(metadata))
@@ -46,7 +49,7 @@ impl anchor_lang::AccountDeserialize for MetadataAccount {
 }
 
 impl anchor_lang::AccountSerialize for MetadataAccount {
-    fn try_serialize<W: std::io::Write>(&self, _writer: &mut W) -> Result<(), ProgramError> {
+    fn try_serialize<W: std::io::Write>(&self, _writer: &mut W) -> anchor_lang::Result<()> {
         // no-op
         Ok(())
     }
