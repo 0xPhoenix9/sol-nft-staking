@@ -485,10 +485,11 @@ pub struct InitializeStakeAccount<'info> {
 
 #[derive(Accounts)]
 pub struct InitializeVaultAccount<'info> {
-  #[account(init, payer = user, space = 10240)]
+  #[account(init, payer = owner, space = 10240)]
   pub vault_account: Account<'info, VaultAccount>,
-  #[account(mut)]
-  pub user: Signer<'info>,
+  #[account(mut, signer)]
+  /// CHECK:` doc comment explaining why no checks through types are necessary.
+  pub owner: AccountInfo<'info>,
   pub reward_mint: Account<'info, Mint>,
   pub system_program: Program <'info, System>,
 }
