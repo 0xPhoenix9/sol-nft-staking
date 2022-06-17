@@ -12,6 +12,7 @@ describe("sol-nft-staking", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
   const provider = anchor.getProvider();
+  console.log(provider.wallet.pubkey);
 
   const solNftStakingProgram = anchor.workspace
     .SolNftStaking as Program<SolNftStaking>;
@@ -94,7 +95,7 @@ describe("sol-nft-staking", () => {
       editionMint: mintkeypair.publicKey,
       updateAuthority: creator.publicKey,
       metadataData: new programs.metadata.MetadataDataData({
-        name: "testc #420",
+        name: "testy #420",
         symbol: "",
         uri: "testing",
         sellerFeeBasisPoints: 0,
@@ -132,9 +133,8 @@ describe("sol-nft-staking", () => {
 
   describe("end to end test", async () => {
     const owner = anchor.web3.Keypair.generate();
-    const vault_account = anchor.web3.Keypair.generate();
     const creator = anchor.web3.Keypair.generate();
-    const collectionName = "testc";
+    const collectionName = "testy";
     
     let [rewarder, rewarderBump] =
       await anchor.web3.PublicKey.findProgramAddress(
