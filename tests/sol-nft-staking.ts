@@ -187,10 +187,10 @@ describe("sol-nft-staking", () => {
     before(async () => {
       console.log("airdropping 1 sol to owner");
       //airdrop tokens
-      await provider.connection.confirmTransaction(
-        await provider.connection.requestAirdrop(owner.publicKey, 1000000000),
-        "confirmed"
-      );
+      // await provider.connection.confirmTransaction(
+      //   await provider.connection.requestAirdrop(owner.publicKey, 1000000000),
+      //   "confirmed"
+      // );
       console.log("owner address : ",owner.publicKey.toString())
     
       console.log("creating reward mint");
@@ -289,8 +289,17 @@ describe("sol-nft-staking", () => {
       );
       console.log("nft whitelist address success");
       const vaultAccountData = await solNftStakingProgram.account.vaultAccount.fetch(vaultAccount);
-      console.log("the number of total staked nft",vaultAccountData.totalStaked);
-      console.log("the address of reard token",vaultAccountData.rewardMint.toBase58());
+      console.log("the number of total staked nft", vaultAccountData.totalStaked);
+      console.log("the address of reard token", vaultAccountData.rewardMint.toBase58());
+      
+      console.log("the nft items staked: [");
+      if(Array.isArray(vaultAccountData.nftItemsStaked)) {
+        vaultAccountData.nftItemsStaked.forEach(element => {
+          console.log("{owner:", element.owner.toBase58());
+          console.log("nftMint:", element.nftMint.toBase58(), "}");
+        });
+      }
+      console.log("]");
     });
 
     it("stakes an NFT", async () => {
