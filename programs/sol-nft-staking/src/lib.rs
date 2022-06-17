@@ -67,6 +67,7 @@ pub mod sol_nft_staking {
                 .find(|known_whitelist_address| known_whitelist_address == &whitelist_address);
             if found_match.is_none() {
                 rewarder.whitelist_addresses.push(whitelist_address.key());
+                rewarder.total_whitelist_address +=1;
             }
         }
         Ok(())

@@ -272,10 +272,9 @@ describe("sol-nft-staking", () => {
         signers: [owner],
       });
     });
-
     it("add the nft to the whitelist address", async () =>{
       console.log("nft address ", nftMint.publicKey.toBase58());
-      console.log(new PublicKey(nftMint.publicKey.toBase58()));
+      // console.log(new PublicKey(nftMint.publicKey.toBase58()));
       await solNftStakingProgram.rpc.updateRewardRate(
         new anchor.BN(rewardRate),
         [new PublicKey(nftMint.publicKey.toBase58())],
@@ -288,15 +287,12 @@ describe("sol-nft-staking", () => {
         }
       );
       console.log("nft whitelist address success");
-      const vaultAccountData = await solNftStakingProgram.account.vaultAccount.fetch(vaultAccount);
-      console.log("the number of total staked nft", vaultAccountData.totalStaked);
-      console.log("the address of reard token", vaultAccountData.rewardMint.toBase58());
-      
-      console.log("the nft items staked: [");
-      if(Array.isArray(vaultAccountData.nftItemsStaked)) {
-        vaultAccountData.nftItemsStaked.forEach(element => {
-          console.log("{owner:", element.owner.toBase58());
-          console.log("nftMint:", element.nftMint.toBase58(), "}");
+      const rewarderInfo = await solNftStakingProgram.account.nftStakeRewarder.fetch(rewarder);
+      console.log("the total number of white list address",rewarderInfo.totalWhitelistAddress);
+      console.log("whitelist addresses: [");
+      if(Array.isArray(rewarderInfo.whitelistAddresses)) {
+        rewarderInfo.whitelistAddresses.forEach(element => {
+          console.log(element.toBase58(), ",");
         });
       }
       console.log("]");
@@ -304,7 +300,6 @@ describe("sol-nft-staking", () => {
 
     it("stakes an NFT", async () => {
       const nftMetadata = await Metadata.getPDA(nftMint.publicKey);
-      console.log("nftMetadata->", nftMetadata);
       await solNftStakingProgram.rpc.stakeNft(
         new anchor.BN(lockingPeriod),
         {
@@ -332,6 +327,18 @@ describe("sol-nft-staking", () => {
  
       let nftAccount = await nftMint.getAccountInfo(nftTokenAccount);
       expect(nftAccount.owner.toBase58()).to.equal(stakeAccount.toBase58());
+      const vaultAccountData = await solNftStakingProgram.account.vaultAccount.fetch(vaultAccount);
+      console.log("the number of total staked nft", vaultAccountData.totalStaked);
+      console.log("the address of reard token", vaultAccountData.rewardMint.toBase58());
+      
+      console.log("the nft items staked: [");
+      if(Array.isArray(vaultAccountData.nftItemsStaked)) {
+        vaultAccountData.nftItemsStaked.forEach(element => {
+          console.log("{owner:", element.owner.toBase58());
+          console.log("nftMint:", element.nftMint.toBase58(), "}");
+        });
+      }
+      console.log("]");
 
     });
 
