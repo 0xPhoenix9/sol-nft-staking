@@ -60,6 +60,7 @@ pub struct VaultAccount {
     pub total_staked: u32,
     pub reward_mint: Pubkey,
     pub nft_items_staked: Vec<NftItem>,
+    pub bump: u8,
 }
 
 #[account]
