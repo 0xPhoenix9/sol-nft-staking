@@ -15,18 +15,20 @@ use state::*;
 
 const REWARDER_PREFIX: &[u8] = b"rewarder";
 const ACCOUNT_PREFIX: &[u8] = b"stake_account";
+const VAULT_PREFIX: &[u8] = b"vault_account";
 
-declare_id!("H5BxWdFfzpou2UcRSsGHMBCroZYs24wWwimPyAX1VqWo");
+declare_id!("5tajv5z2oaVKp9GUXUqLW32Qh6JRqDdMKC9etGWo5AVW");
 
 #[program]
 pub mod sol_nft_staking {
 
     use super::*;
 
-    pub fn initialize_valut(ctx: Context<InitializeVaultAccount>) -> Result<()> {
+    pub fn initialize_valut(ctx: Context<InitializeVaultAccount>,bump:u8) -> Result<()> {
         let vault_account = &mut ctx.accounts.vault_account;
         let reward_mint = &mut ctx.accounts.reward_mint;
         vault_account.total_staked = 0;
+        vault_account.bump = bump;
         vault_account.reward_mint = reward_mint.to_account_info().key();
         Ok(())
     }
@@ -484,14 +486,26 @@ pub struct InitializeStakeAccount<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(bump: u8)]
 pub struct InitializeVaultAccount<'info> {
-  #[account(init, payer = owner, space = 10240)]
-  pub vault_account: Account<'info, VaultAccount>,
   #[account(mut, signer)]
   /// CHECK:` doc comment explaining why no checks through types are necessary.
   pub owner: AccountInfo<'info>,
+
+  #[account(
+    init,
+    space = 10240,
+    payer = owner,
+    seeds = [&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
+    bump
+    )]
+  pub vault_account: Account<'info, VaultAccount>,
+
+  #[account(mut)]
   pub reward_mint: Account<'info, Mint>,
+
   pub system_program: Program <'info, System>,
+  pub rent: Sysvar<'info, Rent>,
 }
 
 
@@ -540,6 +554,12 @@ pub struct StakeNft<'info> {
     )]
     pub reward_token_account: Account<'info, TokenAccount>,
 
+    /// The stake account for the owner
+    #[account(
+    mut,
+    seeds = [&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
+    bump = vault_account.bump,
+    )]
     pub vault_account: Account<'info, VaultAccount>,
 
     /// The Mint of the NFT
@@ -623,6 +643,12 @@ pub struct UnstakeNft<'info> {
     )]
     pub nft_token_account: Account<'info, TokenAccount>,
 
+    /// the valut account
+    #[account(
+        mut,
+        seeds = [&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
+        bump = vault_account.bump,
+    )]
     pub vault_account: Account<'info, VaultAccount>,
 
 

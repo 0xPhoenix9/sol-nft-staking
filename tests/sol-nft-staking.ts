@@ -94,7 +94,7 @@ describe("sol-nft-staking", () => {
       editionMint: mintkeypair.publicKey,
       updateAuthority: creator.publicKey,
       metadataData: new programs.metadata.MetadataDataData({
-        name: "testtt #420",
+        name: "testc #420",
         symbol: "",
         uri: "testing",
         sellerFeeBasisPoints: 0,
@@ -134,7 +134,7 @@ describe("sol-nft-staking", () => {
     const owner = anchor.web3.Keypair.generate();
     const vault_account = anchor.web3.Keypair.generate();
     const creator = anchor.web3.Keypair.generate();
-    const collectionName = "test";
+    const collectionName = "testc";
     
     let [rewarder, rewarderBump] =
       await anchor.web3.PublicKey.findProgramAddress(
@@ -166,6 +166,17 @@ describe("sol-nft-staking", () => {
         ],
         solNftStakingProgram.programId
       );
+
+    let [vaultAccount, vaultAccountBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          solNftStakingProgram.programId.toBuffer(),
+          Buffer.from("vault_account"),
+          owner.publicKey.toBuffer(),
+        ],
+        solNftStakingProgram.programId
+      );
+
     const rewardRate = 3600 * 24;
     const lockingPeriod = 0;
     let rewardMint = null;
@@ -234,18 +245,20 @@ describe("sol-nft-staking", () => {
     });
 
     it("initializes a valut", async () => {
-
-
-      await solNftStakingProgram.rpc.initializeValut({
+      await solNftStakingProgram.rpc.initializeValut(
+        vaultAccountBump,
+        {
         accounts: {
-          vaultAccount: vault_account.publicKey,
           owner: owner.publicKey,
+          vaultAccount,
           rewardMint: rewardMint.publicKey,
-          systemProgram
+          systemProgram,
+          rent: rentSysvar,
         },
         signers: [owner],
       });
     });
+
     it("initialized a stake account", async () => {
       await solNftStakingProgram.rpc.initializeStakeAccount(stakeAccountBump, {
         accounts: {
@@ -260,7 +273,6 @@ describe("sol-nft-staking", () => {
     });
 
     it("stakes an NFT", async () => {
-      console.log("whitelist address");
       await solNftStakingProgram.rpc.updateRewardRate(
         new anchor.BN(rewardRate),
         [nftMint.publicKey],
@@ -272,7 +284,10 @@ describe("sol-nft-staking", () => {
          signers: [owner],
         }
       );
+      console.log("nft whitelist address success");
+
       const nftMetadata = await Metadata.getPDA(nftMint.publicKey);
+      console.log("nftMetadata->", nftMetadata);
       await solNftStakingProgram.rpc.stakeNft(
         new anchor.BN(lockingPeriod),
         {
@@ -283,7 +298,7 @@ describe("sol-nft-staking", () => {
             stakeAccount,
             rewardMint: rewardMint.publicKey,
             rewardTokenAccount,
-            vaultAccount: vault_account.publicKey,
+            vaultAccount: vaultAccount,
             nftMint: nftMint.publicKey,
             nftTokenAccount,
             tokenProgram: splToken.TOKEN_PROGRAM_ID,
@@ -348,7 +363,7 @@ describe("sol-nft-staking", () => {
           rewardTokenAccount,
           nftMint: nftMint.publicKey,
           nftTokenAccount,
-          vaultAccount: vault_account.publicKey,
+          vaultAccount: vaultAccount,
           tokenProgram: splToken.TOKEN_PROGRAM_ID,
           clock: clockSysvar,
         },
