@@ -7,7 +7,7 @@ import { programs, actions } from "@metaplex/js";
 import { Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "bn.js";
-
+import { PublicKey } from '@solana/web3.js';
 describe("sol-nft-staking", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
@@ -273,10 +273,12 @@ describe("sol-nft-staking", () => {
       });
     });
 
-    it("stakes an NFT", async () => {
+    it("add the nft to the whitelist address", async () =>{
+      console.log("nft address ", nftMint.publicKey.toBase58());
+      console.log(new PublicKey(nftMint.publicKey.toBase58()));
       await solNftStakingProgram.rpc.updateRewardRate(
         new anchor.BN(rewardRate),
-        [nftMint.publicKey],
+        [new PublicKey(nftMint.publicKey.toBase58())],
         {
          accounts: {
           rewarder:rewarder,
@@ -286,7 +288,12 @@ describe("sol-nft-staking", () => {
         }
       );
       console.log("nft whitelist address success");
+      const vaultAccountData = await solNftStakingProgram.account.vaultAccount.fetch(vaultAccount);
+      console.log("the number of total staked nft",vaultAccountData.totalStaked);
+      console.log("the address of reard token",vaultAccountData.rewardMint.toBase58());
+    });
 
+    it("stakes an NFT", async () => {
       const nftMetadata = await Metadata.getPDA(nftMint.publicKey);
       console.log("nftMetadata->", nftMetadata);
       await solNftStakingProgram.rpc.stakeNft(
