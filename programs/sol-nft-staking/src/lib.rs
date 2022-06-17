@@ -17,7 +17,7 @@ const REWARDER_PREFIX: &[u8] = b"rewarder";
 const ACCOUNT_PREFIX: &[u8] = b"stake_account";
 const VAULT_PREFIX: &[u8] = b"vault_account";
 
-declare_id!("5tajv5z2oaVKp9GUXUqLW32Qh6JRqDdMKC9etGWo5AVW");
+declare_id!("9pWhgVLHUWhKTYYDDrF1v5M5sNPnjfBBLqznGNXHNE7V");
 
 #[program]
 pub mod sol_nft_staking {
@@ -496,13 +496,16 @@ pub struct InitializeVaultAccount<'info> {
     init,
     space = 10240,
     payer = owner,
-    seeds = [&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
+    seeds = [rewarder.collection.as_bytes(), &id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
     bump
     )]
   pub vault_account: Account<'info, VaultAccount>,
 
   #[account(mut)]
   pub reward_mint: Account<'info, Mint>,
+
+  pub rewarder: Account<'info, NftStakeRewarder>,
+
 
   pub system_program: Program <'info, System>,
   pub rent: Sysvar<'info, Rent>,
@@ -557,7 +560,7 @@ pub struct StakeNft<'info> {
     /// The stake account for the owner
     #[account(
     mut,
-    seeds = [&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
+    seeds = [rewarder.collection.as_bytes(),&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
     bump = vault_account.bump,
     )]
     pub vault_account: Account<'info, VaultAccount>,
@@ -646,7 +649,7 @@ pub struct UnstakeNft<'info> {
     /// the valut account
     #[account(
         mut,
-        seeds = [&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
+        seeds = [rewarder.collection.as_bytes(),&id().to_bytes(), VAULT_PREFIX,&owner.key().to_bytes()],
         bump = vault_account.bump,
     )]
     pub vault_account: Account<'info, VaultAccount>,
